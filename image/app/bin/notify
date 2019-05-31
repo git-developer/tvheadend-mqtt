@@ -1,0 +1,12 @@
+#!/bin/sh
+
+event="$1"
+directory="$2"
+file="$3"
+
+echo "event: $event / $directory / $file"
+case "$file" in
+  recording-pre-process|recording-post-process|recording-post-remove)
+    echo "notification: $file";;
+  *) echo "Unsupported notification: $file";;
+esac

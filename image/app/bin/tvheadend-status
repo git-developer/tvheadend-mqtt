@@ -1,0 +1,227 @@
+#!/bin/sh
+
+###############################################################################
+# Utility functions
+###############################################################################
+
+log() {
+  for arg
+    do echo "$arg" >&2
+  done
+}
+
+cancel() {
+  log "$*"
+  exit 1
+}
+
+require_var() {
+  name="$1"
+  value=$(eval "echo \"\$$name\"")
+  [ -z "$value" ] && cancel "Missing environment variable: $1"
+}
+
+require_cmd() {
+  result=$(type -t "$2")
+  if [ "$?" -eq 0 ]; then
+    case "$1" in
+    'function')
+      echo "$result" | grep -q "^$2\( is a shell function\)\?\$" && return 0
+      ;;
+    'file')
+      echo "$result" | grep -q "^.\+$2\$" && return 0
+      ;;
+    *)
+      cancel "Unsupported command: $1"
+      ;;
+    esac
+  fi
+  cancel "Error: $1 '$2' is missing."
+}
+
+prepare_env() {
+  require_var TVHEADEND_USER
+  require_var TVHEADEND_PASSWORD
+  require_var TVHEADEND_HOST
+  TVHEADEND_HTTP_PORT="${TVHEADEND_HTTP_PORT:-9981}"
+  TVHEADEND_HTTP_URL="${TVHEADEND_HTTP_URL:-http://$TVHEADEND_HOST:$TVHEADEND_HTTP_PORT}"
+  TVHEADEND_HTTP_TIMEOUT="${TVHEADEND_HTTP_TIMEOUT:-15}"
+
+  MQTT_TOPIC_PREFIX="${MQTT_TOPIC_PREFIX:-tvheadend}"
+
+  curl_options=""
+  curl_options="$curl_options --get"
+  curl_options="$curl_options -s"
+  curl_options="$curl_options --max-time $TVHEADEND_HTTP_TIMEOUT"
+  curl_options="$curl_options --user $TVHEADEND_USER:$TVHEADEND_PASSWORD"
+}
+
+print_json() {
+  echo "$1" | jq
+}
+
+entries_to_text() {
+  echo "$1" | jq -r ".entries[] | (.start_real | strflocaltime(\"%Y-%m-%dT%H:%M:%SZ\")) + \" \" + .channelname + \" - \" + .disp_title + if (.disp_subtitle | length > 0) then \" (\" + .disp_subtitle + \")\" else \"\" end"
+}
+
+
+###############################################################################
+# Request HTTP via cURL
+###############################################################################
+
+request() {
+  curl $curl_options $*
+  case "$?" in
+  0)
+    return 0
+    ;;
+  7)
+    message="Failed to connect to host"
+    ;;
+  28)
+    message="Timeout after $TVHEADEND_HTTP_TIMEOUT seconds"
+    ;;
+  *)
+    message="cURL returned $?"
+    ;;
+  esac
+  cancel "Error: $message while trying to access $*"
+}
+
+
+###############################################################################
+# Publish via MQTT
+###############################################################################
+
+publish() {
+  require_var MQTT_BROKER_HOSTNAME
+  require_cmd file mosquitto_pub
+  command="$1"
+  topic="$2"
+  require_cmd function "$command"
+  [ -z "$topic" ] && cancel "Missing argument for MQTT topic"
+
+  message=$("$command")
+  log "Message: $message"
+
+  mosquitto_pub -h "$MQTT_BROKER_HOSTNAME" -t "$topic" -m "$message"
+}
+
+
+###############################################################################
+# Request JSON from pre-defined Tvheadend API endpoints
+###############################################################################
+
+get_status() {
+  subscriptions=$(get_subscriptions)
+  subscription_count=$(echo "$subscriptions" | jq -r ".totalCount")
+  upcoming=$(get_upcoming 1)
+  status=$(echo "$upcoming" | jq ".entries[0] | {next: [((.start_real-now) / 60)|floor, 0] | max, title: .disp_title, subtitle: .disp_subtitle, channel: .channelname, status: .sched_status, subscriptions: $subscription_count}")
+
+  print_json "$status"
+}
+
+get_subscriptions() {
+  subscriptions=$(request "$TVHEADEND_HTTP_URL/api/status/subscriptions")
+  subscription_titles=$(echo "$subscriptions" | jq -r ".entries[] | .title")
+
+  log "Subscriptions: ${subscription_titles:-none}"
+  print_json "$subscriptions"
+}
+
+get_connections() {
+  connections=$(request "$TVHEADEND_HTTP_URL/api/status/connections")
+  connection_peers=$(echo "$connections" | jq ".entries[] | .peer")
+
+  log "Clients: $connection_peers"
+  print_json "$connections"
+}
+
+get_upcoming() {
+  limit="${1:-5}"
+  curl_local_options=""
+  curl_local_options="$curl_local_options --data sort=start_real"
+  curl_local_options="$curl_local_options --data dir=ASC"
+  curl_local_options="$curl_local_options --data limit=$limit"
+  upcoming=$(request $curl_local_options "$TVHEADEND_HTTP_URL/api/dvr/entry/grid_upcoming")
+  upcoming_text=$(entries_to_text "$upcoming")
+
+  log "Upcoming: $upcoming_text"
+  print_json "$upcoming"
+}
+
+get_finished() {
+  limit="${1:-10}"
+  curl_local_options=""
+  curl_local_options="$curl_local_options --data sort=start_real"
+  curl_local_options="$curl_local_options --data dir=DESC"
+  curl_local_options="$curl_local_options --data limit=$limit"
+  finished=$(request $curl_local_options "$TVHEADEND_HTTP_URL/api/dvr/entry/grid_finished")
+  finished_text=$(entries_to_text "$finished")
+
+  log "Finished: $finished_text"
+  print_json "$finished"
+}
+
+
+###############################################################################
+# Request XML from pre-defined Tvheadend API endpoints (deprecated)
+###############################################################################
+
+get_status_from_xml() {
+  require_cmd file xmlstarlet
+
+  xml_to_json=$(dirname "$0")/xml2json.xslt
+  [ -f "$xml_to_json" ] || cancel "Error: '$xml_to_json' is missing."
+
+  status=$(request "$TVHEADEND_HTTP_URL/status.xml")
+
+  status_json=$(       echo "$status" | xmlstarlet tr "$xml_to_json")
+  recording_status=$(  echo "$status" | xmlstarlet sel -t -v "currentload/recordings/recording/status='Recording'")
+  subscription_count=$(echo "$status" | xmlstarlet sel -t -v "currentload/subscriptions")
+  minutes=$(           echo "$status" | xmlstarlet sel -t -v "currentload/recordings/recording/next")
+
+  log "Recording status: $recording_status"
+  log "Subscription count: $subscription_count"
+  log "Minutes: $minutes"
+  print_json "$status_json"
+}
+
+
+###############################################################################
+# Publish Tvheadend presets per MQTT
+###############################################################################
+
+publish_status() {
+  publish get_status "$MQTT_TOPIC_PREFIX/status"
+}
+
+publish_subscriptions() {
+  publish get_subscriptions "$MQTT_TOPIC_PREFIX/subscriptions"
+}
+
+publish_connections() {
+  publish get_connections "$MQTT_TOPIC_PREFIX/connections"
+}
+
+publish_upcoming() {
+  publish get_upcoming "$MQTT_TOPIC_PREFIX/upcoming"
+}
+
+publish_finished() {
+  publish get_finished "$MQTT_TOPIC_PREFIX/finished"
+}
+
+
+###############################################################################
+# Prepare environment
+###############################################################################
+
+prepare_env
+
+
+###############################################################################
+# Run arguments
+###############################################################################
+
+$*
