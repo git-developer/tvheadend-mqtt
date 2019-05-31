@@ -1,5 +1,5 @@
 FROM alpine:latest
-RUN apk add --no-cache tzdata util-linux net-tools curl xmlstarlet jq mosquitto-clients
+RUN apk add --no-cache tzdata curl jq mosquitto-clients
 COPY init /
 COPY app /app
 CMD ["/init"]

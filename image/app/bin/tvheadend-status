@@ -165,30 +165,6 @@ get_finished() {
 
 
 ###############################################################################
-# Request XML from pre-defined Tvheadend API endpoints (deprecated)
-###############################################################################
-
-get_status_from_xml() {
-  require_cmd file xmlstarlet
-
-  xml_to_json=$(dirname "$0")/xml2json.xslt
-  [ -f "$xml_to_json" ] || cancel "Error: '$xml_to_json' is missing."
-
-  status=$(request "$TVHEADEND_HTTP_URL/status.xml")
-
-  status_json=$(       echo "$status" | xmlstarlet tr "$xml_to_json")
-  recording_status=$(  echo "$status" | xmlstarlet sel -t -v "currentload/recordings/recording/status='Recording'")
-  subscription_count=$(echo "$status" | xmlstarlet sel -t -v "currentload/subscriptions")
-  minutes=$(           echo "$status" | xmlstarlet sel -t -v "currentload/recordings/recording/next")
-
-  log "Recording status: $recording_status"
-  log "Subscription count: $subscription_count"
-  log "Minutes: $minutes"
-  print_json "$status_json"
-}
-
-
-###############################################################################
 # Publish Tvheadend presets per MQTT
 ###############################################################################
 
