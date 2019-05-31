@@ -16,5 +16,4 @@ services:
 #      - MQTT_BROKER_HOSTNAME=<no default>
 #      - MQTT_TOPIC_PREFIX=tvheadend
     volumes:
-      - ./image/app/bin:/app/bin
       - ./markers:/app/markers
