@@ -1,13 +1,5 @@
 #!/bin/sh
 
-
-###############################################################################
-# Return codes
-###############################################################################
-rc_ok=0
-rc_missing_arg=1
-
-
 ###############################################################################
 # Utility functions
 ###############################################################################
@@ -18,18 +10,17 @@ log() {
   done
 }
 
+log_failure() {
+  log "Error: Missing $2"
+  return "$1"
+}
+
 require_var() {
-  name="$1"
-  value=$(eval "echo \"\$$name\"")
-  [ -z "$value" ] && log "Missing environment variable: $1" && return "$rc_missing_arg"
-  return "$rc_ok"
+  eval "[ -n \"\$$1\" ]" || log_failure "$?" "environment variable '$1'"
 }
 
 require_command() {
-  $(type -t "$1" | grep -q "^.\+$1\$")
-  rc="$?"
-  [ "$rc" -ne 0 ] && log "Error: command '$1' is missing."
-  return "$rc"
+  $(type -t "$1" | grep -q "^.\+$1\$") || log_failure "$?" "command '$1'"
 }
 
 prepare_env() {
@@ -51,13 +42,7 @@ prepare_env() {
 }
 
 print_json() {
-  require_command jq || return "$?"
-  echo "$1" | jq
-}
-
-entries_to_text() {
-  require_command jq || return "$?"
-  echo "$1" | jq -r ".entries[] | (.start_real | strflocaltime(\"%Y-%m-%dT%H:%M:%SZ\")) + \" \" + .channelname + \" - \" + .disp_title + if (.disp_subtitle | length > 0) then \" (\" + .disp_subtitle + \")\" else \"\" end"
+  echo "$1"
 }
 
 
@@ -102,19 +87,11 @@ get_status() {
 
 get_subscriptions() {
   subscriptions=$(request "$TVHEADEND_HTTP_URL/api/status/subscriptions") || return "$?"
-  require_command jq || return "$?"
-  subscription_titles=$(echo "$subscriptions" | jq -r ".entries[] | .title")
-
-  log "Subscriptions:" "${subscription_titles:-none}"
   print_json "$subscriptions"
 }
 
 get_connections() {
   connections=$(request "$TVHEADEND_HTTP_URL/api/status/connections") || return "$?"
-  require_command jq || return "$?"
-  connection_peers=$(echo "$connections" | jq ".entries[] | .peer")
-
-  log "Clients:" "$connection_peers"
   print_json "$connections"
 }
 
@@ -125,9 +102,6 @@ get_upcoming() {
   curl_local_options="$curl_local_options --data dir=ASC"
   curl_local_options="$curl_local_options --data limit=$limit"
   upcoming=$(request $curl_local_options "$TVHEADEND_HTTP_URL/api/dvr/entry/grid_upcoming") || return "$?"
-  upcoming_text=$(entries_to_text "$upcoming")
-
-  log "Upcoming:" "$upcoming_text"
   print_json "$upcoming"
 }
 
@@ -138,9 +112,6 @@ get_finished() {
   curl_local_options="$curl_local_options --data dir=DESC"
   curl_local_options="$curl_local_options --data limit=$limit"
   finished=$(request $curl_local_options "$TVHEADEND_HTTP_URL/api/dvr/entry/grid_finished") || return "$?"
-  finished_text=$(entries_to_text "$finished")
-
-  log "Finished:" "$finished_text"
   print_json "$finished"
 }
 
@@ -154,18 +125,19 @@ publish() {
 
   require_var MQTT_BROKER_HOSTNAME || return "$?"
   require_command mosquitto_pub    || return "$?"
+
+  [ -n "$1" ] || log_failure "$?" "argument for 'publish'" || return "$?"
   info="$1"
   shift
-  [ -z "$info" ] && log "Missing argument for requested Tvheadend info" && return "$rc_missing_arg"
 
   command="get_$info"
   if $(type -t "$command" | grep -q "^$command\( is a shell function\)\?\$"); then
     message=$("$command" $*)
   else
     message="Error: Unsupported Tvheadend info '$info'"
+    log "$message"
   fi
 
-  log "Message:" "$message"
   mosquitto_pub -h "$MQTT_BROKER_HOSTNAME" -t "$MQTT_TOPIC_PREFIX/$info" -m "$message"
 }
 
