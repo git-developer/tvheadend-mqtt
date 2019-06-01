@@ -105,7 +105,7 @@ get_subscriptions() {
   require_command jq || return "$?"
   subscription_titles=$(echo "$subscriptions" | jq -r ".entries[] | .title")
 
-  log "Subscriptions: ${subscription_titles:-none}"
+  log "Subscriptions:" "${subscription_titles:-none}"
   print_json "$subscriptions"
 }
 
@@ -114,7 +114,7 @@ get_connections() {
   require_command jq || return "$?"
   connection_peers=$(echo "$connections" | jq ".entries[] | .peer")
 
-  log "Clients: $connection_peers"
+  log "Clients:" "$connection_peers"
   print_json "$connections"
 }
 
@@ -127,7 +127,7 @@ get_upcoming() {
   upcoming=$(request $curl_local_options "$TVHEADEND_HTTP_URL/api/dvr/entry/grid_upcoming") || return "$?"
   upcoming_text=$(entries_to_text "$upcoming")
 
-  log "Upcoming: $upcoming_text"
+  log "Upcoming:" "$upcoming_text"
   print_json "$upcoming"
 }
 
@@ -140,7 +140,7 @@ get_finished() {
   finished=$(request $curl_local_options "$TVHEADEND_HTTP_URL/api/dvr/entry/grid_finished") || return "$?"
   finished_text=$(entries_to_text "$finished")
 
-  log "Finished: $finished_text"
+  log "Finished:" "$finished_text"
   print_json "$finished"
 }
 
@@ -150,24 +150,29 @@ get_finished() {
 ###############################################################################
 
 publish() {
+  log "$(date '+%Y-%m-%d %H:%M:%S') publish $*"
+
   require_var MQTT_BROKER_HOSTNAME || return "$?"
   require_command mosquitto_pub    || return "$?"
   info="$1"
+  shift
   [ -z "$info" ] && log "Missing argument for requested Tvheadend info" && return "$rc_missing_arg"
 
   command="get_$info"
   if $(type -t "$command" | grep -q "^$command\( is a shell function\)\?\$"); then
-    message=$("$command")
+    message=$("$command" $*)
   else
     message="Error: Unsupported Tvheadend info '$info'"
   fi
 
-  log "Message: $message"
+  log "Message:" "$message"
   mosquitto_pub -h "$MQTT_BROKER_HOSTNAME" -t "$MQTT_TOPIC_PREFIX/$info" -m "$message"
 }
 
 subscribe() {
-  mosquitto_sub -h "$MQTT_BROKER_HOSTNAME" -t "$MQTT_TOPIC_PREFIX/request" | while read info; do publish "$info"; done
+  log "$(date '+%Y-%m-%d %H:%M:%S') subscribe"
+  # '$info' must not be quoted so that arguments are handed over separately
+  mosquitto_sub -h "$MQTT_BROKER_HOSTNAME" -t "$MQTT_TOPIC_PREFIX/request" | while read info; do publish $info; done
 }
 
 
