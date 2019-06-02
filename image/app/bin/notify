@@ -8,12 +8,19 @@
 event="$1"
 directory="$2"
 file="$3"
-timestamp=$(date +"%Y-%m-%dT%H:%M:%SZ")
+timestamp=$(date "+%Y-%m-%d %H:%M:%S")
+status=$(dirname "$0")/tvheadend-status
 
 echo "$timestamp Notification: $file"
 case "$file" in
-  recording-pre-process|recording-post-process)
-    $(dirname "$0")/tvheadend-status publish status
+  recording-pre-process)
+    "$status" publish upcoming
+    "$status" publish subscriptions
+    ;;
+  recording-post-process)
+    "$status" publish finished
+    "$status" publish upcoming
+    "$status" publish subscriptions
     ;;
   recording-post-remove)
     echo "No action intended."
