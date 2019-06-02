@@ -81,7 +81,6 @@ get_status() {
   subscription_count=$(echo "$subscriptions" | jq -r ".totalCount")
   upcoming=$(get_upcoming 1) || return "$?"
   status=$(echo "$upcoming" | jq ".entries[0] | {next: [((.start_real-now) / 60)|floor, 0] | max, title: .disp_title, subtitle: .disp_subtitle, channel: .channelname, status: .sched_status, subscriptions: $subscription_count}")
-
   print_json "$status"
 }
 
@@ -115,6 +114,20 @@ get_finished() {
   print_json "$finished"
 }
 
+get_disk_statistics() {
+  stats_file="$1"
+  [ -n "$stats_file" ] || log_failure "$?" "argument for 'get_disk_statistics'" || return "$?"
+  [ -s "$stats_file" ] || log_failure "$?" "non-empty disk statistics file" || return "$?"
+  grep -v Filesystem "$stats_file" | (
+    while read -r source size used available percent target; do
+      mounts="${mounts}${mounts:+, }"$(printf\
+        '"%s" : { "size":"%s", "used":"%s", "available":"%s", "percent":"%s", "filesystem":"%s" }\n'\
+        "$target" "$size" "$used" "$available" "$percent" "$source"\
+      )
+    done
+    print_json "{ $mounts }"
+  )
+}
 
 ###############################################################################
 # Publish and subscribe via MQTT
@@ -168,9 +181,10 @@ notify() {
       publish finished
       publish upcoming
       publish subscriptions
+      publish disk_statistics "$directory$file"
       ;;
     recording-post-remove)
-      log "No action intended."
+      publish disk_statistics "$directory$file"
       ;;
     *)
       log "Notification unsupported."
