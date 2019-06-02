@@ -149,6 +149,37 @@ subscribe() {
 
 
 ###############################################################################
+# Notify about changes
+###############################################################################
+
+notify() {
+  log "$(date '+%Y-%m-%d %H:%M:%S') notify $*"
+
+  event="$1"
+  directory="$2"
+  file="$3"
+
+  case "$file" in
+    recording-pre-process)
+      publish upcoming
+      publish subscriptions
+      ;;
+    recording-post-process)
+      publish finished
+      publish upcoming
+      publish subscriptions
+      ;;
+    recording-post-remove)
+      log "No action intended."
+      ;;
+    *)
+      log "Notification unsupported."
+      ;;
+  esac
+}
+
+
+###############################################################################
 # Prepare environment
 ###############################################################################
 

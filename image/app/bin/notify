@@ -1,31 +1,8 @@
 #!/bin/sh
 
 ###############################################################################
-# This script is intended to be called by inotifyd whenever a Tvheadend marker
-# file is updated.
+# This script is intended to be called by inotifyd
+# whenever a Tvheadend marker file is updated.
 ###############################################################################
 
-event="$1"
-directory="$2"
-file="$3"
-timestamp=$(date "+%Y-%m-%d %H:%M:%S")
-status=$(dirname "$0")/tvheadend-status
-
-echo "$timestamp Notification: $file"
-case "$file" in
-  recording-pre-process)
-    "$status" publish upcoming
-    "$status" publish subscriptions
-    ;;
-  recording-post-process)
-    "$status" publish finished
-    "$status" publish upcoming
-    "$status" publish subscriptions
-    ;;
-  recording-post-remove)
-    echo "No action intended."
-    ;;
-  *)
-    echo "Notification unsupported."
-    ;;
-esac
+$(dirname "$0")/tvheadend-status notify $*
