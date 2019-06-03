@@ -114,9 +114,9 @@ get_finished() {
   print_json "$finished"
 }
 
-get_disk_statistics() {
+get_storage() {
   stats_file="$1"
-  [ -n "$stats_file" ] || log_failure "$?" "argument for 'get_disk_statistics'" || return "$?"
+  [ -n "$stats_file" ] || log_failure "$?" "argument for 'get_storage'" || return "$?"
   [ -s "$stats_file" ] || log_failure "$?" "non-empty disk statistics file" || return "$?"
   grep -v Filesystem "$stats_file" | (
     while read -r source size used available percent target; do
@@ -181,10 +181,10 @@ notify() {
       publish finished
       publish upcoming
       publish subscriptions
-      publish disk_statistics "$directory$file"
+      publish storage "$directory$file"
       ;;
     recording-post-remove)
-      publish disk_statistics "$directory$file"
+      publish storage "$directory$file"
       ;;
     *)
       log "Notification unsupported."
