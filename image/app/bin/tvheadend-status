@@ -45,6 +45,46 @@ print_json() {
   echo "$1"
 }
 
+##
+# Run a command and store stdout and stderr in shell variables.
+#
+# $1: name of variable for content of stdout
+# $2: name of variable for content of stderr
+# $3..*: command to run with optional arguments
+##
+run() {
+  out="$1"; shift
+  err="$1"; shift
+  command=$*
+
+  # create temp files (type fifo)
+  fifo_out=$(mktemp -u) && mkfifo "$fifo_out"
+  fifo_err=$(mktemp -u) && mkfifo "$fifo_err"
+
+  # run command and capture output (blocks until read from fifos)
+  $command >"$fifo_out" 2>"$fifo_err" &
+  pid="$!"
+
+  # open file descriptors and connect to fifos
+  exec 3<"$fifo_out" 4<"$fifo_err"
+
+  # store return code
+  wait "$pid"
+  rc="$?"
+
+  # remove fifos
+  rm "$fifo_out" "$fifo_err"
+
+  # read output into variables
+  eval "$out=\"$(cat <&3)\""
+  eval "$err=\"$(cat <&4)\""
+
+  # close file descriptors
+  exec 3<&- 4<&-
+
+  return "$rc"
+}
+
 
 ###############################################################################
 # Request HTTP via cURL
@@ -106,10 +146,10 @@ get_finished() {
 }
 
 get_storage() {
-  stats_file="$1"
-  [ -n "$stats_file" ] || log_failure "$?" "argument for 'get_storage'" || return "$?"
-  [ -s "$stats_file" ] || log_failure "$?" "non-empty disk statistics file" || return "$?"
-  grep -v Filesystem "$stats_file" | (
+  storage_info="$1"
+  [ -n "$storage_info" ] || log_failure "$?" "argument for storage info file" || return "$?"
+  [ -s "$storage_info" ] || log_failure "$?" "non-empty storage info file '$storage_info'" || return "$?"
+  grep -v Filesystem "$storage_info" | (
     while read -r source size used available percent target; do
       mounts="${mounts}${mounts:+, }"$(printf\
         '"%s" : { "size":"%s", "used":"%s", "available":"%s", "percent":"%s", "filesystem":"%s" }\n'\
@@ -134,15 +174,22 @@ publish() {
   info="$1"
   shift
 
+  topic="$MQTT_TOPIC_PREFIX/$info"
   command="get_$info"
   if $(type -t "$command" | grep -q "^$command\( is a shell function\)\?\$"); then
-    message=$("$command" $*)
+
+    # run command, store stdout to shell variable 'message' and stderr to 'error'
+    run message error "$command" $*
+    if [ "$?" -ne 0 ]; then
+      message="$error"
+      topic="$topic/error"
+    fi
   else
     message="Error: Unsupported Tvheadend info '$info'"
+    topic="$topic/error"
     log "$message"
   fi
-
-  mosquitto_pub -h "$MQTT_BROKER_HOSTNAME" -t "$MQTT_TOPIC_PREFIX/$info" -m "$message"
+  [ -n "$message" ] && mosquitto_pub -h "$MQTT_BROKER_HOSTNAME" -t "$topic" -m "$message"
 }
 
 subscribe() {
