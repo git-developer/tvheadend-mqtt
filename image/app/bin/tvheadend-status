@@ -10,17 +10,17 @@ log() {
   done
 }
 
-log_failure() {
-  log "Error: Missing $2"
+log_error() {
+  log "Error: $2"
   return "$1"
 }
 
 require_var() {
-  eval "[ -n \"\$$1\" ]" || log_failure "$?" "environment variable '$1'"
+  eval "[ -n \"\$$1\" ]" || log_error "$?" "Missing environment variable '$1'"
 }
 
 require_command() {
-  $(type -t "$1" | grep -q "^.\+$1\$") || log_failure "$?" "command '$1'"
+  $(type -t "$1" | grep -q "^.\+$1\$") || log_error "$?" "Missing command '$1'"
 }
 
 prepare_env() {
@@ -46,11 +46,14 @@ print_json() {
 }
 
 ##
-# Run a command, and store output in shell variables:
-# stdout in 'run_out'
-# stderr in 'run_err'
+# Run a command and store output in shell variables:
+#  $1 holds the name for stdout variable
+#  $2 holds the name for stderr variable
+#  $3..* hold the command and arguments
 ##
 run() {
+  out="$1"; shift
+  err="$1"; shift
   command=$*
 
   # create temp files (type fifo)
@@ -72,8 +75,8 @@ run() {
   rm "$fifo_out" "$fifo_err"
 
   # read output into variables
-  run_out=$(cat <&3)
-  run_err=$(cat <&4)
+  read -r "$out" <&3
+  read -r "$err" <&4
 
   # close file descriptors
   exec 3<&- 4<&-
@@ -87,23 +90,17 @@ run() {
 ###############################################################################
 
 request() {
-  curl $curl_options $*
-  rc="$?"
-  case "$rc" in
-  0)
-    return "$rc"
-    ;;
-  7)
-    message="Failed to connect to host"
-    ;;
-  28)
-    message="Timeout after $TVHEADEND_HTTP_TIMEOUT seconds"
-    ;;
-  *)
-    message="cURL returned $rc"
-    ;;
-  esac
-  log "Error: $message while trying to access $*" && return "$rc"
+  curl $curl_options $* || {
+    rc="$?"
+    case "$rc" in
+      6)  message="Couldn't resolve host" ;;
+      7)  message="Failed to connect to host" ;;
+      28) message="Timeout after $TVHEADEND_HTTP_TIMEOUT seconds" ;;
+      *)  message="cURL returned $?" ;;
+    esac
+    for url; do : ; done
+    log_error "$rc" "$message. URL: $url"
+  }
 }
 
 
@@ -143,8 +140,8 @@ get_finished() {
 
 get_storage() {
   storage_info="$1"
-  [ -n "$storage_info" ] || log_failure "$?" "argument for storage info file" || return "$?"
-  [ -s "$storage_info" ] || log_failure "$?" "non-empty storage info file '$storage_info'" || return "$?"
+  [ -n "$storage_info" ] || log_error "$?" "Missing argument for storage info file" || return "$?"
+  [ -s "$storage_info" ] || log_error "$?" "Storage info file '$storage_info' is empty" || return "$?"
   grep -v Filesystem "$storage_info" | (
     while read -r source size used available percent target; do
       mounts="${mounts}${mounts:+, }"$(printf\
@@ -166,21 +163,17 @@ publish() {
   require_var MQTT_BROKER_HOSTNAME || return "$?"
   require_command mosquitto_pub    || return "$?"
 
-  [ -n "$1" ] || log_failure "$?" "argument for 'publish'" || return "$?"
+  [ -n "$1" ] || log_error "$?" "Missing argument for 'publish'" || return "$?"
   info="$1"
   shift
 
   topic="$MQTT_TOPIC_PREFIX/$info"
   command="get_$info"
   if $(type -t "$command" | grep -q "^$command\( is a shell function\)\?\$"); then
-
-    run "$command" $*
-    rc="$?"
-    message="$run_out"
-    if [ "$rc" -ne 0 ]; then
-      message="$run_err"
+    run message error "$command" $* || {
+      message="$error"
       topic="$topic/error"
-    fi
+    }
   else
     message="Error: Unsupported Tvheadend info '$info'"
     topic="$topic/error"
@@ -192,7 +185,7 @@ publish() {
 subscribe() {
   log "$(date '+%Y-%m-%d %H:%M:%S') subscribe"
   # '$info' must not be quoted so that arguments are handed over separately
-  mosquitto_sub -h "$MQTT_BROKER_HOSTNAME" -t "$MQTT_TOPIC_PREFIX/request" | while read info; do publish $info; done
+  mosquitto_sub -h "$MQTT_BROKER_HOSTNAME" -t "$MQTT_TOPIC_PREFIX/request" | while read -r info; do publish $info; done
 }
 
 
