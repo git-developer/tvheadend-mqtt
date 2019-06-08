@@ -2,7 +2,7 @@
 version: "2"
 services:
   tvheadend-status:
-    image: git-developer/tvheadend-status:latest
+    image: dockomento/tvheadend-status:latest
     container_name: tvheadend-status
     environment:
 #      Supported environment variables with default values: 
@@ -17,3 +17,4 @@ services:
 #      - MQTT_TOPIC_PREFIX=tvheadend
     volumes:
       - ./markers:/app/markers
+    restart: unless-stopped
