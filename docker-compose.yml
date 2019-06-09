@@ -1,9 +1,9 @@
 ---
 version: "2"
 services:
-  tvheadend-status:
-    image: dockomento/tvheadend-status:latest
-    container_name: tvheadend-status
+  tvheadend-mqtt:
+    image: dockomento/tvheadend-mqtt:latest
+    container_name: tvheadend-mqtt
     environment:
 #      Supported environment variables with default values: 
 #      - TZ=<no default>
