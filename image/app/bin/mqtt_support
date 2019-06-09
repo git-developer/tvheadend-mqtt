@@ -50,7 +50,7 @@ publish() {
   info="$1"
   shift
 
-  topic="${MQTT_TOPIC_PREFIX:-tvheadend}/$info"
+  topic="$MQTT_TOPIC_PREFIX/$info"
   command="get_$info"
   if $(type -t "$command" | grep -q "^$command\( is a shell function\)\?\$"); then
     run message error "$command" $* || {

@@ -14,6 +14,7 @@ prepare_environment() {
   require_var TVHEADEND_HOST     || return "$?"
   TVHEADEND_HTTP_PORT="${TVHEADEND_HTTP_PORT:-9981}"
   TVHEADEND_HTTP_URL="${TVHEADEND_HTTP_URL:-http://$TVHEADEND_HOST:$TVHEADEND_HTTP_PORT}"
+  MQTT_TOPIC_PREFIX="${MQTT_TOPIC_PREFIX:-tvheadend}"
 }
 
 
