@@ -1,0 +1,28 @@
+#!/bin/sh
+
+handle_notify() {
+  log "$(date '+%Y-%m-%d %H:%M:%S') handle_notify $*"
+
+  event="$1"
+  directory="$2"
+  file="$3"
+
+  case "$file" in
+    recording-pre-process)
+      publish upcoming
+      publish subscriptions
+      ;;
+    recording-post-process)
+      publish finished
+      publish upcoming
+      publish subscriptions
+      publish storage "$directory$file"
+      ;;
+    recording-post-remove)
+      publish storage "$directory$file"
+      ;;
+    *)
+      log "Notification unsupported."
+      ;;
+  esac
+}

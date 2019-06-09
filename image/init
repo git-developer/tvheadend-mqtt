@@ -1,3 +1,3 @@
 #!/bin/sh
-/app/bin/tvheadend-status subscribe &
-exec inotifyd /app/bin/notify /app/markers/:ce
+/app/bin/main subscribe &
+exec inotifyd /app/bin/inotify_handler /app/markers/:ce

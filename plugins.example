@@ -1,0 +1,55 @@
+#!/bin/sh
+
+#
+# Example file to demonstrate the plugin mechanism.
+#
+# The plugin mechanism allows to
+#  1.) extend the built-in commands by custom commands
+#  2.) define a custom handler that is notified on file changes
+#
+# All plugins may use the built-in core functions.
+#
+# Requirements for a plugin command:
+# - function name starts with 'get_'
+# - result is written to standard out
+# - errors are written to standard error
+# - return code is 0 on success
+# - return code is not 0 on error
+#
+# Requirement for a custom notify handler:
+# - function name must be handle_notify
+#
+
+#
+# Plugin command 'foo': request 'foo' from Tvheadend
+#
+function get_foo() {
+  foo=$(request -v "$TVHEADEND_HTTP_URL/api/foo" 2>&1) || return "$?"
+  print_json "$foo"
+}
+
+#
+# Plugin command 'hello': check arguments and print 'hello world'
+#
+function get_hello() {
+  [ -n "$1" ] || log_error "$?" "Missing argument for hello" || return "$?"
+  if [ "$1" == 'world' ]; then
+    echo "{ \"hello\": \"world\" }"
+  else
+    echo "Unsupported argument '$1'" >&2
+    return 2
+  fi
+}
+
+#
+# Custom handler: notifications will be printed only (effectively disables MQTT publishing)
+#
+# handle_notify() {
+#   log "$(date '+%Y-%m-%d %H:%M:%S') custom-notify $*"
+#
+#   event="$1"
+#   directory="$2"
+#   file="$3"
+#
+#   echo "Custom notify: event '$event' on file '$file' in directory '$directory'"
+# }

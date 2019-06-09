@@ -17,4 +17,5 @@ services:
 #      - MQTT_TOPIC_PREFIX=tvheadend
     volumes:
       - ./markers:/app/markers
+#      - ./plugins:/app/plugins
     restart: unless-stopped

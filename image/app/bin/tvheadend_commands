@@ -1,0 +1,46 @@
+#!/bin/sh
+
+get_subscriptions() {
+  subscriptions=$(request "$TVHEADEND_HTTP_URL/api/status/subscriptions") || return "$?"
+  print_json "$subscriptions"
+}
+
+get_connections() {
+  connections=$(request "$TVHEADEND_HTTP_URL/api/status/connections") || return "$?"
+  print_json "$connections"
+}
+
+get_upcoming() {
+  limit="${1:-5}"
+  curl_local_options=""
+  curl_local_options="$curl_local_options --data sort=start_real"
+  curl_local_options="$curl_local_options --data dir=ASC"
+  curl_local_options="$curl_local_options --data limit=$limit"
+  upcoming=$(request $curl_local_options "$TVHEADEND_HTTP_URL/api/dvr/entry/grid_upcoming") || return "$?"
+  print_json "$upcoming"
+}
+
+get_finished() {
+  limit="${1:-10}"
+  curl_local_options=""
+  curl_local_options="$curl_local_options --data sort=start_real"
+  curl_local_options="$curl_local_options --data dir=DESC"
+  curl_local_options="$curl_local_options --data limit=$limit"
+  finished=$(request $curl_local_options "$TVHEADEND_HTTP_URL/api/dvr/entry/grid_finished") || return "$?"
+  print_json "$finished"
+}
+
+get_storage() {
+  storage_info="$1"
+  [ -n "$storage_info" ] || log_error "$?" "Missing argument for storage info file" || return "$?"
+  [ -s "$storage_info" ] || log_error "$?" "Storage info file '$storage_info' is empty" || return "$?"
+  grep -v Filesystem "$storage_info" | (
+    while read -r source size used available percent target; do
+      mounts="${mounts}${mounts:+, }"$(printf\
+        '"%s" : { "size":"%s", "used":"%s", "available":"%s", "percent":"%s", "filesystem":"%s" }\n'\
+        "$target" "$size" "$used" "$available" "$percent" "$source"\
+      )
+    done
+    print_json "{ $mounts }"
+  )
+}

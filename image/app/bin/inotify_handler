@@ -5,4 +5,4 @@
 # whenever a Tvheadend marker file is updated.
 ###############################################################################
 
-$(dirname "$0")/tvheadend-status notify $*
+$(dirname "$0")/main handle_notify $*

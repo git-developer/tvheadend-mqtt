@@ -1,0 +1,72 @@
+#!/bin/sh
+
+##
+# Run a command and store output in shell variables:
+#  $1 holds the name for stdout variable
+#  $2 holds the name for stderr variable
+#  $3..* hold the command and arguments
+##
+run() {
+  out="$1"; shift
+  err="$1"; shift
+  command=$*
+
+  # create temp files (type fifo)
+  fifo_out=$(mktemp -u) && mkfifo "$fifo_out"
+  fifo_err=$(mktemp -u) && mkfifo "$fifo_err"
+
+  # run command and capture output (blocks until read from fifos)
+  $command >"$fifo_out" 2>"$fifo_err" &
+  pid="$!"
+
+  # open file descriptors and connect to fifos
+  exec 3<"$fifo_out" 4<"$fifo_err"
+
+  # store return code
+  wait "$pid"
+  rc="$?"
+
+  # remove fifos
+  rm "$fifo_out" "$fifo_err"
+
+  # read output into variables
+  read -r -d '' "$out" <&3
+  read -r -d '' "$err" <&4
+echo "message: $message"
+
+  # close file descriptors
+  exec 3<&- 4<&-
+
+  return "$rc"
+}
+
+publish() {
+  log "$(date '+%Y-%m-%d %H:%M:%S') publish $*"
+
+  require_var MQTT_BROKER_HOSTNAME || return "$?"
+  require_command mosquitto_pub    || return "$?"
+
+  [ -n "$1" ] || log_error "$?" "Missing argument for 'publish'" || return "$?"
+  info="$1"
+  shift
+
+  topic="${MQTT_TOPIC_PREFIX:-tvheadend}/$info"
+  command="get_$info"
+  if $(type -t "$command" | grep -q "^$command\( is a shell function\)\?\$"); then
+    run message error "$command" $* || {
+      message="$error"
+      topic="$topic/error"
+    }
+  else
+    message="Error: Unsupported Tvheadend info '$info'"
+    topic="$topic/error"
+    log "$message"
+  fi
+  [ -n "$message" ] && mosquitto_pub -h "$MQTT_BROKER_HOSTNAME" -t "$topic" -m "$message"
+}
+
+subscribe() {
+  log "$(date '+%Y-%m-%d %H:%M:%S') subscribe"
+  # '$info' must not be quoted so that arguments are handed over separately
+  mosquitto_sub -h "$MQTT_BROKER_HOSTNAME" -t "$MQTT_TOPIC_PREFIX/request" | while read -r info; do publish $info; done
+}

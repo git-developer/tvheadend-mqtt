@@ -1,0 +1,49 @@
+#!/bin/sh
+
+log() {
+  for arg
+    do echo "$arg" >&2
+  done
+}
+
+log_error() {
+  log "Error: $2"
+  return "$1"
+}
+
+require_var() {
+  eval "[ -n \"\$$1\" ]" || log_error "$?" "Missing environment variable '$1'"
+}
+
+require_command() {
+  $(type -t "$1" | grep -q "^.\+$1\$") || log_error "$?" "Missing command '$1'"
+}
+
+print_json() {
+  echo "$1"
+}
+
+###############################################################################
+# Request HTTP via cURL
+###############################################################################
+
+request() {
+  timeout="${TVHEADEND_HTTP_TIMEOUT:-15}"
+  curl_options=""
+  curl_options="$curl_options --get"
+  curl_options="$curl_options -s"
+  curl_options="$curl_options --max-time ${timeout}"
+  curl_options="$curl_options --user ${TVHEADEND_USER}:${TVHEADEND_PASSWORD}"
+
+  curl $curl_options $* || {
+    rc="$?"
+    case "$rc" in
+      6)  message="Couldn't resolve host" ;;
+      7)  message="Failed to connect to host" ;;
+      28) message="Timeout after $timeout seconds" ;;
+      *)  message="cURL returned $?" ;;
+    esac
+    for url; do : ; done
+    log_error "$rc" "$message. URL: $url"
+  }
+}
