@@ -21,12 +21,12 @@ Example for command `subscriptions` and MQTT broker `broker`:
     $ mosquitto_sub -h broker -t tvheadend/# -v
     tvheadend/subscriptions {"entries":[],"totalCount":0}
 
-### Built-in commands:
+### Built-in commands
 - `connections`
 - `subscriptions`
 - `upcoming`
 - `finished`
-- `storage` (requires Tvheadend configuration)
+- `storage` (requires Tvheadend configuration, see *Publishing triggered by Tvheadend*)
 
 ### Plugins
 Additional commands may be added by creating a file `plugins` and mounting it under `/app/plugins` into the container.
@@ -75,17 +75,19 @@ Test: Subscribe and request a command
 ## Configuration 
 ### Environment variables
 
-| Variable                 | Description            | Required? |  Default     |
-| ------------------------ | ---------------------- | --------- | ------------ |
-| `TVHEADEND_USER`         | Tvheadend username     | required  |              |
-| `TVHEADEND_PASSWORD`     | Tvheadend password     | required  |              |
-| `TVHEADEND_HOST`         | Tvheadend hostname     | required  |              |
-| `MQTT_BROKER_HOSTNAME`   | MQTT broker hostname   | required  |              |
-| `TVHEADEND_HTTP_PORT`    | Tvheadend HTTP port    | optional  | `9981`       |
+| Variable                 | Description            | Required? |  Default    |
+| ------------------------ | ---------------------- | --------- | ----------- |
+| `TVHEADEND_USER`         | Tvheadend username     | required  |             |
+| `TVHEADEND_PASSWORD`     | Tvheadend password     | required  |             |
+| `TVHEADEND_HOST`         | Tvheadend hostname     | required  |             |
+| `MQTT_BROKER_HOSTNAME`   | MQTT broker hostname   | required  |             |
+| `TVHEADEND_HTTP_PORT`    | Tvheadend HTTP port    | optional  | `9981`      |
 | `TVHEADEND_HTTP_URL`     | Tvheadend API URL      | optional  | `http://${TVHEADEND_HOST}:${TVHEADEND_HTTP_PORT}` |
-| `TVHEADEND_HTTP_TIMEOUT` | HTTP Timeout (seconds) | optional  | 15           |
-| `MQTT_TOPIC_PREFIX`      | Prefix for MQTT topic  | optional  | `tvheadend`  |
-| `TZ`                     | Timezone               | optional  | none         |
+| `TVHEADEND_HTTP_TIMEOUT` | HTTP Timeout (seconds) | optional  | 15          |
+| `MQTT_TOPIC_PREFIX`      | Prefix for MQTT topic  | optional  | `tvheadend` |
+| `MQTT_PUBLISH_OPTIONS`   | MQTT publish options   | optional  |             |
+| `MQTT_SUBSCRIBE_OPTIONS` | MQTT subscribe options | optional  |             |
+| `TZ`                     | Timezone               | optional  |             |
 
 ### Volumes
 The directory `/app/markers` inside the docker container may be mounted to a directory on the host.

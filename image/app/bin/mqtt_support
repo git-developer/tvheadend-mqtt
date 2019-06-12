@@ -62,11 +62,11 @@ publish() {
     topic="$topic/error"
     log "$message"
   fi
-  [ -n "$message" ] && mosquitto_pub -h "$MQTT_BROKER_HOSTNAME" -t "$topic" -m "$message"
+  [ -n "$message" ] && echo "$MQTT_PUBLISH_OPTIONS" | xargs mosquitto_pub -h "$MQTT_BROKER_HOSTNAME" -t "$topic" -m "$message"
 }
 
 subscribe() {
   log "$(date '+%Y-%m-%d %H:%M:%S') subscribe"
   # '$info' must not be quoted so that arguments are handed over separately
-  mosquitto_sub -h "$MQTT_BROKER_HOSTNAME" -t "$MQTT_TOPIC_PREFIX/request" | while read -r info; do publish $info; done
+  echo "$MQTT_SUBSCRIBE_OPTIONS" | xargs mosquitto_sub -h "$MQTT_BROKER_HOSTNAME" -t "$MQTT_TOPIC_PREFIX/request" | while read -r info; do publish $info; done
 }
