@@ -13,11 +13,11 @@ Key features:
   - [FHEM](https://fhem.de) integration
 
 ## How it works
-A client on the network publishes a command request to the MQTT Topic `${MQTT_TOPIC_PREFIX}/request`.
+Clients on the network may publish a command request to the MQTT Topic `${MQTT_TOPIC_PREFIX}/request`.
 Example for command `subscriptions` and MQTT broker `broker`:
     $ mosquitto_pub -h broker -t tvheadend/request -m subscriptions
 
-`tvheadend-mqtt` publishes the response to the MQTT topic `${MQTT_TOPIC_PREFIX}/`*command*. Example:
+`tvheadend-mqtt` then publishes the response to the MQTT topic `${MQTT_TOPIC_PREFIX}/`*command*. Example:
     $ mosquitto_sub -h broker -t tvheadend/# -v
     tvheadend/subscriptions {"entries":[],"totalCount":0}
 
@@ -29,7 +29,8 @@ Example for command `subscriptions` and MQTT broker `broker`:
 - `storage` (requires Tvheadend configuration, see *Publishing triggered by Tvheadend*)
 
 ### Plugins
-Additional commands may be added by creating a file `plugins` and mounting it under `/app/plugins` into the container.
+Additional commands may be added by creating a file `plugins`
+and mounting it under `/app/plugins` into the container.
 See the file `plugins.example` for details.
 
 ## Setup
@@ -89,17 +90,19 @@ Test: Subscribe and request a command
 | `MQTT_SUBSCRIBE_OPTIONS` | MQTT subscribe options | optional  |             |
 | `TZ`                     | Timezone               | optional  |             |
 
-### Volumes
-The directory `/app/markers` inside the docker container may be mounted to a directory on the host.
-A change to one of the following files within this directory triggers an MQTT publish:
-* `recording-post-process`
-* `recording-post-remove`
-* `recording-pre-process`
+### Example: minimal configuration
+    ---
+    version: "2"
+    services:
+       tvheadend-mqtt:
+        image: dockomento/tvheadend-mqtt:latest
+        environment:
+          - TVHEADEND_USER=hts
+          - TVHEADEND_PASSWORD=hts
+          - TVHEADEND_HOST=localhost
+          - MQTT_BROKER_HOSTNAME=localhost
 
-The amount of published information is built-in and may be customized with the `plugins` file.
-See section *Publishing triggered by Tvheadend* for details.
-
-### Example for a minimal configuration
+### Example: standard configuration
     ---
     version: "2"
     services:
@@ -112,31 +115,53 @@ See section *Publishing triggered by Tvheadend* for details.
           - TVHEADEND_PASSWORD=hts
           - TVHEADEND_HOST=localhost
           - MQTT_BROKER_HOSTNAME=localhost
-        # volumes:
-        #   - /home/hts/markers:/app/markers
+        volumes:
+          # support for publishing triggered by Tvheadend (optional)
+          - /home/hts/markers:/app/markers
+          # support for user-defined plugins (optional)
+          - ./plugins:/app/plugins
+        restart: unless-stopped
 
 ## Optional features
 ### Publishing triggered by Tvheadend
-Requirement for this feature is a shared *marker directory* that is writeable by Tvheadend and readable by `tvheadend-mqtt`.
-In this section, the marker directory is assumed to be `/home/hts/markers`.
+Requirement for this feature is a shared *marker directory*
+that is writeable by Tvheadend and readable by `tvheadend-mqtt`.
+In this section, the following assumptions are made:
+- marker directory: `/home/hts/markers`
+- directory for Tvheadend recordings: `/recordings`
 
-Tvheadend Configuration: Recording
-- Pre-processor command:  `/bin/sh -c "/bin/df -P -h /recordings >/home/hts/markers/recording-pre-process"`
-- Post-processor command: `/bin/sh -c "/bin/df -P -h /recordings >/home/hts/markers/recording-post-process"`
-- Post-remove command:    `/bin/sh -c "/bin/df -P -h /recordings >/home/hts/markers/recording-post-remove"`
+1. Configure Tvheadend to write marker files: login to Tvheadend,
+   go to *Configuration / Recording / Miscellaneous Settings*
+   and set at least one of
+  - Pre-processor command:  `/bin/sh -c "/bin/df -P -h /recordings >/home/hts/markers/recording-pre-process"`
+  - Post-processor command: `/bin/sh -c "/bin/df -P -h /recordings >/home/hts/markers/recording-post-process"`
+  - Post-remove command:    `/bin/sh -c "/bin/df -P -h /recordings >/home/hts/markers/recording-post-remove"`
 
-`docker-compose.yml`: mount marker directory to `/app/markers`
+1. Extend `docker-compose.yml` to mount the marker directory to `/app/markers`:
         volumes:
           - /home/hts/markers:/app/markers
 
-The default handler publishes built-in commands via MQTT. This behavior may be customized by
-defining the function `handle_notify()` in the plugins file. See the file `plugins.example` for an example.
+1. (Re-)Create the Docker container: `sudo docker-compose down; sudo docker-compose up -d'`
+
+The built-in handler watches the following files within the marker directory
+for changes and publishes pre-defined commands via MQTT:
+* `recording-post-process`
+* `recording-post-remove`
+* `recording-pre-process`
+
+The built-in handler (`/app/bin/handle_notify`) may be replaced
+by a custom handler using the `plugins` file. See the file `plugins.example` for an example.
 
 
 ### FHEM integration
+This is an example for a FHEM configuration using built-in modules only:
+- `MQTT_DEVICE` registers FHEM as MQTT subscriber for Tvheadend topics
+- `expandJSON` creates FHEM readings from published JSON messages
+- `readingsGroup` visualizes the Tvheadend info in a table
+
 ```
 define mqtt_tvheadend MQTT_DEVICE
-attr   mqtt_tvheadend alias Tvheadend
+attr   mqtt_tvheadend alias Tvheadend: MQTT
 attr   mqtt_tvheadend subscribeReading_connections   tvheadend/connections
 attr   mqtt_tvheadend subscribeReading_subscriptions tvheadend/subscriptions
 attr   mqtt_tvheadend subscribeReading_upcoming      tvheadend/upcoming

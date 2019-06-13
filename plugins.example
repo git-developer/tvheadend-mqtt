@@ -7,7 +7,8 @@
 #  1.) extend the built-in commands by custom commands
 #  2.) define a custom handler that is notified on file changes
 #
-# All plugins may use the built-in core functions.
+# All plugins may use the built-in core functions
+# that are defined in /app/bin/core_functions.
 #
 # Requirements for a plugin command:
 # - function name starts with 'get_'
@@ -21,11 +22,11 @@
 #
 
 #
-# Plugin command 'foo': request 'foo' from Tvheadend
+# Plugin command 'serverinfo': request 'serverinfo' from Tvheadend
 #
-function get_foo() {
-  foo=$(request -v "$TVHEADEND_HTTP_URL/api/foo" 2>&1) || return "$?"
-  print_json "$foo"
+function get_serverinfo() {
+  serverinfo=$(request "$TVHEADEND_HTTP_URL/api/serverinfo" 2>&1) || return "$?"
+  print_json "$serverinfo"
 }
 
 #
