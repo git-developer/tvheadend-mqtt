@@ -4,6 +4,7 @@
 An extension to [Tvheadend](https://tvheadend.org/) that exposes the Tvheadend API via MQTT.
 
 Key features:
+
 - Access to the Tvheadend API via MQTT
 - Simple setup with lightweight Docker container
 - Runs on any host on the network
@@ -15,9 +16,11 @@ Key features:
 ## How it works
 Clients on the network may publish a command request to the MQTT Topic `${MQTT_TOPIC_PREFIX}/request`.
 Example for command `subscriptions` and MQTT broker `broker`:
+
     $ mosquitto_pub -h broker -t tvheadend/request -m subscriptions
 
 `tvheadend-mqtt` then publishes the response to the MQTT topic `${MQTT_TOPIC_PREFIX}/`*command*. Example:
+
     $ mosquitto_sub -h broker -t tvheadend/# -v
     tvheadend/subscriptions {"entries":[],"totalCount":0}
 
@@ -35,38 +38,51 @@ See the file `plugins.example` for details.
 
 ## Setup
 Prerequisites:
+
 * A running Tvheadend service
 * A running MQTT broker
 
 ### Server
 Dependencies:
+
 * Docker
 * optional and recommended: docker-compose
+
 On Debian based systems, dependencies may be installed using the command
+
     $ sudo apt-get install docker-ce docker-compose
 
 Installation:
+
     $ mkdir tvheadend-mqtt
     $ cd tvheadend-mqtt
     $ wget https://github.com/git-developer/tvheadend-mqtt/raw/master/docker-compose.yml
-    # edit docker-compose.yml - see configuration section
+
+Edit `docker-compose.yml` - see configuration section
+
     $ sudo docker-compose up -d
 
 Test 1: Print status to shell
+
     $ sudo docker exec tvheadend-mqtt /app/bin/main get_subscriptions
     {"entries":[],"totalCount":0}
 
 Test 2: Publish status via MQTT
+
     $ sudo docker exec tvheadend-mqtt /app/bin/main publish subscriptions
     22:58:53 publish subscriptions
 
 ### Client(s)
 Dependencies:
+
 * An MQTT client
+
 On Debian based systems, dependencies may be installed using the command
+
     $ sudo apt-get install mosquitto-clients
 
 Test: Subscribe and request a command
+
     $ mosquitto_sub -h broker -t tvheadend/# -v &
     $ mosquitto_pub -h broker -t tvheadend/request -m subscriptions
     tvheadend/request subscriptions
@@ -127,24 +143,29 @@ Test: Subscribe and request a command
 Requirement for this feature is a shared *marker directory*
 that is writeable by Tvheadend and readable by `tvheadend-mqtt`.
 In this section, the following assumptions are made:
+
 - marker directory: `/home/hts/markers`
 - directory for Tvheadend recordings: `/recordings`
 
-1. Configure Tvheadend to write marker files: login to Tvheadend,
-   go to *Configuration / Recording / Miscellaneous Settings*
-   and set at least one of
-  - Pre-processor command:  `/bin/sh -c "/bin/df -P -h /recordings >/home/hts/markers/recording-pre-process"`
-  - Post-processor command: `/bin/sh -c "/bin/df -P -h /recordings >/home/hts/markers/recording-post-process"`
-  - Post-remove command:    `/bin/sh -c "/bin/df -P -h /recordings >/home/hts/markers/recording-post-remove"`
-
-1. Extend `docker-compose.yml` to mount the marker directory to `/app/markers`:
+1. Configure Tvheadend to write marker files:
+    Login to Tvheadend, go to *Configuration / Recording / Miscellaneous Settings* and set at least one of
+    * Pre-processor command:  `/bin/sh -c "/bin/df -P -h /recordings >/home/hts/markers/recording-pre-process"`
+    * Post-processor command: `/bin/sh -c "/bin/df -P -h /recordings >/home/hts/markers/recording-post-process"`
+    * Post-remove command:    `/bin/sh -c "/bin/df -P -h /recordings >/home/hts/markers/recording-post-remove"`
+1. Extend `docker-compose.yml`:
+    Mount the marker directory to `/app/markers`
+    ```
         volumes:
-          - /home/hts/markers:/app/markers
-
-1. (Re-)Create the Docker container: `sudo docker-compose down; sudo docker-compose up -d'`
+           - /home/hts/markers:/app/markers
+    ```
+1. (Re-)Create the Docker container
+    ```
+    sudo docker-compose down; sudo docker-compose up -d'
+    ```
 
 The built-in handler watches the following files within the marker directory
 for changes and publishes pre-defined commands via MQTT:
+
 * `recording-post-process`
 * `recording-post-remove`
 * `recording-pre-process`
@@ -155,10 +176,10 @@ by a custom handler using the `plugins` file. See the file `plugins.example` for
 
 ### FHEM integration
 This is an example for a FHEM configuration using built-in modules only:
+
 - `MQTT_DEVICE` registers FHEM as MQTT subscriber for Tvheadend topics
 - `expandJSON` creates FHEM readings from published JSON messages
 - `readingsGroup` visualizes the Tvheadend info in a table
-
 ```
 define mqtt_tvheadend MQTT_DEVICE
 attr   mqtt_tvheadend alias Tvheadend: MQTT
