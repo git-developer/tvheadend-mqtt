@@ -22,20 +22,19 @@ run() {
   # open file descriptors and connect to fifos
   exec 3<"$fifo_out" 4<"$fifo_err"
 
+  # read output into variables
+  read -r -d '' "$out" <&3
+  read -r -d '' "$err" <&4
+
   # store return code
   wait "$pid"
   rc="$?"
 
-  # remove fifos
-  rm "$fifo_out" "$fifo_err"
-
-  # read output into variables
-  read -r -d '' "$out" <&3
-  read -r -d '' "$err" <&4
-echo "message: $message"
-
   # close file descriptors
   exec 3<&- 4<&-
+
+  # remove fifos
+  rm "$fifo_out" "$fifo_err"
 
   return "$rc"
 }
@@ -62,7 +61,15 @@ publish() {
     topic="$topic/error"
     log "$message"
   fi
-  [ -n "$message" ] && echo "$MQTT_PUBLISH_OPTIONS" | xargs mosquitto_pub -h "$MQTT_BROKER_HOSTNAME" -t "$topic" -m "$message"
+
+  # To get the message size in bytes, LC_ALL must be set (otherwise the size is number of characters)
+  # This is done in a subshell so that LC_ALL ist not changed globally
+  message_bytes=$(LC_ALL=C && echo "${#message}")
+
+  # xargs has a default limit of ~30000 bytes for the command line, which may be too small.
+  # Thus, the limit is set slightly above the actual size
+  xargs_limit=$(expr 50 + "${#MQTT_PUBLISH_OPTIONS}" + "${#MQTT_BROKER_HOSTNAME}" + "${#topic}" + "$message_bytes")
+  [ -n "$message" ] && echo "$MQTT_PUBLISH_OPTIONS" | xargs -s "$xargs_limit" mosquitto_pub -h "$MQTT_BROKER_HOSTNAME" -t "$topic" -m "$message"
 }
 
 subscribe() {
