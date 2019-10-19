@@ -111,7 +111,7 @@ Test: Subscribe and request a command
     version: "2"
     services:
        tvheadend-mqtt:
-        image: dockomento/tvheadend-mqtt:latest
+        image: ckware/tvheadend-mqtt:latest
         environment:
           - TVHEADEND_USER=hts
           - TVHEADEND_PASSWORD=hts
@@ -123,7 +123,7 @@ Test: Subscribe and request a command
     version: "2"
     services:
        tvheadend-mqtt:
-        image: dockomento/tvheadend-mqtt:latest
+        image: ckware/tvheadend-mqtt:latest
         container_name: tvheadend-mqtt
         environment:
           - TZ=Europe/Berlin

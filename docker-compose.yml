@@ -2,7 +2,7 @@
 version: "2"
 services:
   tvheadend-mqtt:
-    image: dockomento/tvheadend-mqtt:latest
+    image: ckware/tvheadend-mqtt:latest
     container_name: tvheadend-mqtt
     environment:
 #      Required environment variables:
