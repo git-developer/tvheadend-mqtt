@@ -19,6 +19,7 @@ handle_notify() {
       publish storage "$directory$file"
       ;;
     recording-post-remove)
+      publish finished
       publish storage "$directory$file"
       ;;
     *)
