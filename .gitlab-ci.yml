@@ -1,2 +1,21 @@
 include:
-  remote: "https://github.com/git-developer/docker-support/raw/develop/gitlab-ci/docker-template.yml"
+  remote: "https://github.com/git-developer/docker-support/raw/v2.0.0/gitlab-ci/docker-template.yml"
+
+variables:
+  IMAGE_PLATFORMS:    linux/amd64,linux/arm/v7
+
+stages:
+  - prepare
+  - analyze
+  - publish
+
+Collect Additional Tags:
+  extends: .docker_support:.with_bare_image
+  stage: analyze
+  dependencies:
+  - Collect Tags
+  artifacts:
+    paths:
+    - tags
+  script:
+  - echo >tags/demo "${CI_PROJECT_PATH}:$(date --utc -I)"
