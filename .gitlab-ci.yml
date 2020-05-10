@@ -2,7 +2,7 @@ include:
   remote: "https://github.com/git-developer/docker-support/raw/v2.0.0/gitlab-ci/docker-template.yml"
 
 variables:
-  IMAGE_PLATFORMS: linux/amd64,linux/arm/v7
+  IMAGE_PLATFORMS: linux/amd64,linux/arm/v6
 
 Collect Additional Tags:
   stage: prepare
