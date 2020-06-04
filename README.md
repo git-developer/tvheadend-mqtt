@@ -175,8 +175,34 @@ by a custom handler using the `plugins` file. See the file `plugins.example` for
 
 
 ### FHEM integration
-This is an example for a FHEM configuration using built-in modules only:
+This section contains examples for a FHEM configuration using built-in modules only.
 
+#### Using a MQTT2_DEVICE
+- `MQTT2_DEVICE` registers FHEM as MQTT subscriber for Tvheadend topics and creates FHEM readings from published JSON messages
+- `readingsGroup` visualizes the Tvheadend info in a table
+```
+define mqtt_tvheadend MQTT2_DEVICE
+attr   mqtt_tvheadend readingList tvheadend/.* { json2nameValue($EVENT, "$1_") if ("$TOPIC" =~ '^.*/([^/]+)$') }
+attr   mqtt_tvheadend event-on-change-reading .*
+
+define group_mqtt_tvheadend readingsGroup \
+ mqtt_tvheadend:<Recorder>,upcoming_entries_1_sched_status,<>,upcoming_entries_1_sched_status:t\
+ mqtt_tvheadend:<Subscriptions>,subscriptions_totalCount,<>,subscriptions_totalCount:t\
+ mqtt_tvheadend:@2,<Storage>,(storage_/recordings)_percent,#1_available,storage_/recordings_size:t\
+ <Upcoming>\
+ mqtt_tvheadend:@1,(upcoming_entries_..?)_disp_title,#1_disp_extratext,#1_start\
+ <Finished>\
+ mqtt_tvheadend:@1,(finished_entries_..?)_disp_title,#1_disp_extratext,#1_start
+attr   group_mqtt_tvheadend nonames 1
+attr   group_mqtt_tvheadend nameStyle    { Upcoming => 'style="font-weight:bold;; text-align:center"', Finished => 'style="font-weight:bold;; text-align:center"' }
+attr   group_mqtt_tvheadend valueFormat  { if ($READING =~ ".+_start\$") { $VALUE = substr(FmtDateTime($VALUE), 0, 16) } elsif ($READING =~ ".+_percent\$") { "$VALUE% used" } elsif ($READING =~ ".+_available\$") { "$VALUE free" } }
+attr   group_mqtt_tvheadend valueColumns { if ($READING =~ '(Upcoming|Finished)') {'colspan="5"'} elsif ($READING =~ '.+_disp_extratext') {'colspan="2"'} }
+attr   group_mqtt_tvheadend valueIcon    {'upcoming_entries_1_sched_status.scheduled' => 'ios-on-for-timer-green', 'upcoming_entries_1_sched_status.recording' => '10px-kreis-rot'}
+attr   group_mqtt_tvheadend valueStyle   { if ($VALUE =~ '(\d+)%') { my $color = ('green', 'yellow', 'red')[List::Util::min(2,List::Util::max(0,int($1-60)/20))]; "style=\"width:100px; text-align:center; color:black; background:linear-gradient(to right, $color $VALUE, #ccc)\"" } }
+attr   group_mqtt_tvheadend alias Tvheadend
+```
+
+#### Using a MQTT_DEVICE
 - `MQTT_DEVICE` registers FHEM as MQTT subscriber for Tvheadend topics
 - `expandJSON` creates FHEM readings from published JSON messages
 - `readingsGroup` visualizes the Tvheadend info in a table
@@ -201,10 +227,10 @@ define group_mqtt_tvheadend readingsGroup \
  mqtt_tvheadend:@2,<>,(upcoming_entries_..)_disp_title,#1_disp_extratext,#1_start\
  mqtt_tvheadend:@2,<>,(finished_entries_..)_disp_title,#1_disp_extratext,#1_start
 attr   group_mqtt_tvheadend nonames 1
-attr   group_mqtt_tvheadend nameStyle { Upcoming => 'style="font-weight:bold;; text-align:center"', Finished => 'style="font-weight:bold;; text-align:center"' }
-attr   group_mqtt_tvheadend valueFormat { if ($READING =~ ".+_start\$") { $VALUE = substr(FmtDateTime($VALUE), 0, 16) } elsif ($READING =~ ".+_percent\$") { "$VALUE% used" } elsif ($READING =~ ".+_available\$") { "$VALUE available" } }
+attr   group_mqtt_tvheadend nameStyle    { Upcoming => 'style="font-weight:bold;; text-align:center"', Finished => 'style="font-weight:bold;; text-align:center"' }
+attr   group_mqtt_tvheadend valueFormat  { if ($READING =~ ".+_start\$") { $VALUE = substr(FmtDateTime($VALUE), 0, 16) } elsif ($READING =~ ".+_percent\$") { "$VALUE% used" } elsif ($READING =~ ".+_available\$") { "$VALUE available" } }
 attr   group_mqtt_tvheadend valueColumns { if ($READING =~ '(Finished|Upcoming)') {'colspan="5"'} }
-attr   group_mqtt_tvheadend valueIcon {'upcoming_entries_01_sched_status.scheduled' => 'ios-on-for-timer-green', 'upcoming_entries_01_sched_status.recording' => '10px-kreis-rot'}
-attr   group_mqtt_tvheadend valueStyle { if ($VALUE =~ '\d+%') { "style=\"width:100px;; text-align:center;; border: 1px solid #ccc;; background:-webkit-linear-gradient(left, green $VALUE, rgba(0,0,0,0) $VALUE)\"" }}
+attr   group_mqtt_tvheadend valueIcon    {'upcoming_entries_01_sched_status.scheduled' => 'ios-on-for-timer-green', 'upcoming_entries_01_sched_status.recording' => '10px-kreis-rot'}
+attr   group_mqtt_tvheadend valueStyle   { if ($VALUE =~ '\d+%') { "style=\"width:100px;; text-align:center;; border: 1px solid #ccc;; background:-webkit-linear-gradient(left, green $VALUE, rgba(0,0,0,0) $VALUE)\"" }}
 attr   group_mqtt_tvheadend alias Tvheadend
 ```
