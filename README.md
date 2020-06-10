@@ -107,36 +107,40 @@ Test: Subscribe and request a command
 | `TZ`                     | Timezone               | optional  |             |
 
 ### Example: minimal configuration
-    ---
-    version: "2"
-    services:
-       tvheadend-mqtt:
-        image: ckware/tvheadend-mqtt:latest
-        environment:
-          - TVHEADEND_USER=hts
-          - TVHEADEND_PASSWORD=hts
-          - TVHEADEND_HOST=localhost
-          - MQTT_BROKER_HOSTNAME=localhost
+```yaml
+---
+version: "2"
+services:
+    tvheadend-mqtt:
+    image: "ckware/tvheadend-mqtt:latest"
+    environment:
+        TVHEADEND_USER: "hts"
+        TVHEADEND_PASSWORD: "hts"
+        TVHEADEND_HOST: "localhost"
+        MQTT_BROKER_HOSTNAME: "localhost"
+```
 
 ### Example: standard configuration
-    ---
-    version: "2"
-    services:
-       tvheadend-mqtt:
-        image: ckware/tvheadend-mqtt:latest
-        container_name: tvheadend-mqtt
-        environment:
-          - TZ=Europe/Berlin
-          - TVHEADEND_USER=hts
-          - TVHEADEND_PASSWORD=hts
-          - TVHEADEND_HOST=localhost
-          - MQTT_BROKER_HOSTNAME=localhost
-        volumes:
-          # support for publishing triggered by Tvheadend (optional)
-          - /home/hts/markers:/app/markers
-          # support for user-defined plugins (optional)
-          - ./plugins:/app/plugins
-        restart: unless-stopped
+```yaml
+---
+version: "2"
+services:
+    tvheadend-mqtt:
+    image: "ckware/tvheadend-mqtt:latest"
+    container_name: "tvheadend-mqtt"
+    environment:
+        TZ: "Europe/Berlin"
+        TVHEADEND_USER: "hts"
+        TVHEADEND_PASSWORD: "hts"
+        TVHEADEND_HOST: "localhost"
+        MQTT_BROKER_HOSTNAME: "localhost"
+    volumes:
+        # support for publishing triggered by Tvheadend (optional)
+        - "/home/hts/markers:/app/markers"
+        # support for user-defined plugins (optional)
+        - "./plugins:/app/plugins"
+    restart: "unless-stopped"
+```
 
 ## Optional features
 ### Publishing triggered by Tvheadend
