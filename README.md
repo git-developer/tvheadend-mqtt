@@ -116,11 +116,11 @@ services:
     environment:
         TVHEADEND_USER: "hts"
         TVHEADEND_PASSWORD: "hts"
-        TVHEADEND_HOST: "localhost"
-        MQTT_BROKER_HOSTNAME: "localhost"
+        TVHEADEND_HOST: "tv-host"
+        MQTT_BROKER_HOSTNAME: "broker-host"
 ```
 
-### Example: standard configuration
+### Example: standard configuration with MQTT authentication
 ```yaml
 ---
 version: "2"
@@ -132,8 +132,9 @@ services:
         TZ: "Europe/Berlin"
         TVHEADEND_USER: "hts"
         TVHEADEND_PASSWORD: "hts"
-        TVHEADEND_HOST: "localhost"
-        MQTT_BROKER_HOSTNAME: "localhost"
+        TVHEADEND_HOST: "tv-host"
+        MQTT_BROKER_HOSTNAME: "broker-host"
+        MQTT_PUBLISH_OPTIONS: "--username mqtt-user --pw !p4§§w0rd? --id tvheadend-mqtt"
     volumes:
         # support for publishing triggered by Tvheadend (optional)
         - "/home/hts/markers:/app/markers"
