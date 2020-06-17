@@ -34,6 +34,7 @@ request() {
   curl_options="$curl_options -s"
   curl_options="$curl_options --max-time ${timeout}"
   curl_options="$curl_options --user ${TVHEADEND_USER}:${TVHEADEND_PASSWORD}"
+  curl_options="$curl_options --anyauth"
 
   curl $curl_options $* || {
     rc="$?"
