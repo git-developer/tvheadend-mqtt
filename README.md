@@ -166,9 +166,9 @@ In this section, the following assumptions are made:
         volumes:
            - /home/hts/markers:/app/markers
     ```
-1. (Re-)Create the Docker container
+1. (Re-) Start the Docker container
     ```
-    sudo docker-compose down; sudo docker-compose up -d'
+    sudo sh -c 'docker-compose down; docker-compose up -d'
     ```
 
 The built-in handler watches the following files within the marker directory
