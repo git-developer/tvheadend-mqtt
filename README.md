@@ -137,6 +137,7 @@ services:
         TVHEADEND_CURL_OPTIONS: "--anyauth --digest"
         MQTT_BROKER_HOSTNAME: "broker-host"
         MQTT_PUBLISH_OPTIONS: "--username mqtt-user --pw mqtt-p4$§w0rd --id tvheadend-mqtt-publisher"
+        MQTT_SUBSCRIBE_OPTIONS: "--username mqtt-user --pw mqtt-p4$§w0rd --id tvheadend-mqtt-subscriber"
     volumes:
         # support for publishing triggered by Tvheadend (optional)
         - "/home/hts/markers:/app/markers"
