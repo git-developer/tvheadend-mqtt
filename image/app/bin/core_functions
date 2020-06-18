@@ -29,12 +29,11 @@ print_json() {
 
 request() {
   timeout="${TVHEADEND_HTTP_TIMEOUT:-15}"
-  curl_options=""
+  curl_options="${TVHEADEND_CURL_OPTIONS-}"
   curl_options="$curl_options --get"
   curl_options="$curl_options -s"
   curl_options="$curl_options --max-time ${timeout}"
   curl_options="$curl_options --user ${TVHEADEND_USER}:${TVHEADEND_PASSWORD}"
-  curl_options="$curl_options --anyauth"
 
   curl $curl_options $* || {
     rc="$?"

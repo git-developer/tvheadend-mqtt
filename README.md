@@ -92,19 +92,20 @@ Test: Subscribe and request a command
 ## Configuration 
 ### Environment variables
 
-| Variable                 | Description            | Required? |  Default    |
-| ------------------------ | ---------------------- | --------- | ----------- |
-| `TVHEADEND_USER`         | Tvheadend username     | required  |             |
-| `TVHEADEND_PASSWORD`     | Tvheadend password     | required  |             |
-| `TVHEADEND_HOST`         | Tvheadend hostname     | required  |             |
-| `MQTT_BROKER_HOSTNAME`   | MQTT broker hostname   | required  |             |
-| `TVHEADEND_HTTP_PORT`    | Tvheadend HTTP port    | optional  | `9981`      |
-| `TVHEADEND_HTTP_URL`     | Tvheadend API URL      | optional  | `http://${TVHEADEND_HOST}:${TVHEADEND_HTTP_PORT}` |
-| `TVHEADEND_HTTP_TIMEOUT` | HTTP Timeout (seconds) | optional  | 15          |
-| `MQTT_TOPIC_PREFIX`      | Prefix for MQTT topic  | optional  | `tvheadend` |
-| `MQTT_PUBLISH_OPTIONS`   | MQTT publish options   | optional  |             |
-| `MQTT_SUBSCRIBE_OPTIONS` | MQTT subscribe options | optional  |             |
-| `TZ`                     | Timezone               | optional  |             |
+| Variable                 | Description            | Required? |  Default    | Example         |
+| ------------------------ | ---------------------- | --------- | ----------- | --------------- |
+| `TVHEADEND_USER`         | Tvheadend username     | required  |             | `tvh-client`    |
+| `TVHEADEND_PASSWORD`     | Tvheadend password     | required  |             | `tvh-p4$§w0rd`  |
+| `TVHEADEND_HOST`         | Tvheadend hostname     | required  |             | `tvh-host`      |
+| `MQTT_BROKER_HOSTNAME`   | MQTT broker hostname   | required  |             | `broker-host`   |
+| `TVHEADEND_HTTP_PORT`    | Tvheadend HTTP port    | optional  | `9981`      | `19981`         |
+| `TVHEADEND_HTTP_URL`     | Tvheadend API URL      | optional  | `http://${TVHEADEND_HOST}:${TVHEADEND_HTTP_PORT}` |`http://${TVHEADEND_HOST}:${TVHEADEND_HTTP_PORT}/tvheadend`
+| `TVHEADEND_HTTP_TIMEOUT` | HTTP Timeout (seconds) | optional  | `15`        | `3`             |
+| `TVHEADEND_CURL_OPTIONS` | Tvheadend cURL options | optional  |             | `--digest`      |
+| `MQTT_TOPIC_PREFIX`      | Prefix for MQTT topic  | optional  | `tvheadend` | `services/tvh`  |
+| `MQTT_PUBLISH_OPTIONS`   | MQTT publish options   | optional  |             | `-u mqtt-user -P mqtt-p4$§w0rd -i tvheadend-mqtt-publisher`  |
+| `MQTT_SUBSCRIBE_OPTIONS` | MQTT subscribe options | optional  |             | `-u mqtt-user -P mqtt-p4$§w0rd -i tvheadend-mqtt-subscriber` |
+| `TZ`                     | Timezone               | optional  |             | `Europe/Berlin` |
 
 ### Example: minimal configuration
 ```yaml
@@ -120,7 +121,7 @@ services:
         MQTT_BROKER_HOSTNAME: "broker-host"
 ```
 
-### Example: standard configuration with MQTT authentication
+### Example: MQTT authentication and Tvheadend digest authentication
 ```yaml
 ---
 version: "2"
@@ -130,11 +131,12 @@ services:
     container_name: "tvheadend-mqtt"
     environment:
         TZ: "Europe/Berlin"
-        TVHEADEND_USER: "hts"
-        TVHEADEND_PASSWORD: "hts"
+        TVHEADEND_USER: "tvh-client"
+        TVHEADEND_PASSWORD: "tvh-p4$§w0rd"
         TVHEADEND_HOST: "tv-host"
+        TVHEADEND_CURL_OPTIONS: "--anyauth --digest"
         MQTT_BROKER_HOSTNAME: "broker-host"
-        MQTT_PUBLISH_OPTIONS: "--username mqtt-user --pw !p4§§w0rd? --id tvheadend-mqtt"
+        MQTT_PUBLISH_OPTIONS: "--username mqtt-user --pw mqtt-p4$§w0rd --id tvheadend-mqtt-publisher"
     volumes:
         # support for publishing triggered by Tvheadend (optional)
         - "/home/hts/markers:/app/markers"
@@ -239,3 +241,25 @@ attr   group_mqtt_tvheadend valueIcon    {'upcoming_entries_01_sched_status.sche
 attr   group_mqtt_tvheadend valueStyle   { if ($VALUE =~ '\d+%') { "style=\"width:100px;; text-align:center;; border: 1px solid #ccc;; background:-webkit-linear-gradient(left, green $VALUE, rgba(0,0,0,0) $VALUE)\"" }}
 attr   group_mqtt_tvheadend alias Tvheadend
 ```
+
+## Pitfalls
+### Authentication
+If you encounter authentication problems:
+* Check if the credentials are set correctly in the Docker container.
+  They should be listed exactly as in the `docker-compose.yml`, without quotes:
+  ```
+  $ docker exec tvheadend-mqtt env
+  PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+  HOSTNAME=1a2b3c4d5e6g
+  TZ=Europe/Berlin
+  TVHEADEND_USER=tvh-user
+  TVHEADEND_PASSWORD=tvh-p4$§w0rd
+  TVHEADEND_HOST=tvh-host
+  TVHEADEND_HTTP_PORT=9981
+  MQTT_BROKER_HOSTNAME=broker-host
+  MQTT_PUBLISH_OPTIONS=-u mqtt-user -P mqtt-p4$§w0rd
+  HOME=/root
+  ```
+* Check your
+  [Tvheadend server settings](https://github.com/git-developer/tvheadend-mqtt/issues/1#issuecomment-645569405).
+  If you use Authentication type _Digest_, you have to set `TVHEADEND_CURL_OPTIONS` accordingly, e.g. `--digest`.
