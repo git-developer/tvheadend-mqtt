@@ -162,12 +162,12 @@ In this section, the following assumptions are made:
     * Post-remove command:    `/bin/sh -c "/bin/df -P -h /recordings >/home/hts/markers/recording-post-remove"`
 1. Extend `docker-compose.yml`:
     Mount the marker directory to `/app/markers`
-    ```
+    ```yaml
         volumes:
            - /home/hts/markers:/app/markers
     ```
 1. (Re-) Start the Docker container
-    ```
+    ```shell
     sudo sh -c 'docker-compose down; docker-compose up -d'
     ```
 
@@ -248,7 +248,7 @@ attr   group_mqtt_tvheadend alias Tvheadend
 If you encounter authentication problems:
 * Check if the credentials are set correctly in the Docker container.
   They should be listed exactly as in the `docker-compose.yml`, without quotes:
-  ```
+  ```shell
   $ docker exec tvheadend-mqtt env
   PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
   HOSTNAME=1a2b3c4d5e6g
@@ -264,3 +264,34 @@ If you encounter authentication problems:
 * Check your
   [Tvheadend server settings](https://github.com/git-developer/tvheadend-mqtt/issues/1#issuecomment-645569405).
   If you use Authentication type _Digest_, you have to set `TVHEADEND_CURL_OPTIONS` accordingly, e.g. `--digest`.
+
+### Connection issues
+When the `tvheadend-mqtt` container is running on the same host as Tvheadend or the MQTT broker, connection issues may occur.
+This problem occured for the first time after an update of Docker from version _19.03_ to version _20.10_.
+#### Symptom
+The log contains error messages:
+  ```shell
+  $ docker-compose logs --tail 10
+  2020-12-09 06:02:13 subscribe
+  Error: Connection refused
+  ```
+#### Cause
+When `tvheadend-mqtt` is running on the same host as Tvheadend and/or the MQTT broker,
+  the variables `TVHEADEND_HOST` and/or `MQTT_BROKER_HOSTNAME` (as well as `localhost`) resolve to `127.0.0.1`.
+  This address is bound to the container only and not to the host.
+#### Solution
+Map the special hostname `host-gateway` to the name of the Docker host.
+  This may be done by adding the following entry to the `tvheadend-mqtt` service definition in your `docker-compose.yml`:
+  ```yaml
+  extra_hosts:
+  - "<YOUR-HOSTNAME>:host-gateway"
+  ```
+  Example:
+  ```yaml
+  extra_hosts:
+  - "tvh-host:host-gateway"
+  ```
+#### References
+  - [moby #40007](https://github.com/moby/moby/pull/40007): Support `host.docker.internal` in dockerd on Linux
+  - [docker-for-linux #264](https://github.com/docker/for-linux/issues/264): Support `host.docker.internal` DNS name to host
+  - [docker-cli #2290](https://github.com/docker/cli/issues/2290): add configuration option to add `host.docker.internal` by default
