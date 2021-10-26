@@ -4,13 +4,13 @@ services:
   tvheadend-mqtt:
     image: "ckware/tvheadend-mqtt:latest"
     container_name: "tvheadend-mqtt"
-    environment:
+#   environment:
 #   Required environment variables:
 #     TVHEADEND_USER: hts
 #     TVHEADEND_PASSWORD: hts
 #     TVHEADEND_HOST: localhost
 #     MQTT_BROKER_HOSTNAME: localhost
-    volumes:
+#   volumes:
     #  support for publishing triggered by Tvheadend (optional)
 #   - /home/hts/markers:/app/markers
     # support for user-defined plugins (optional)
